@@ -1,0 +1,48 @@
+/* var
+ * -------------------------- */
+
+/* mixin
+ * -------------------------- */
+%avoid_spacing{
+    font-size: 0;
+    letter-spacing: -4px;
+}
+
+%resume_avoid_spacing{
+    display: inline-block;
+    letter-spacing: normal;
+    vertical-align: top;
+}
+
+%fixed_width_content{
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+%fixed_width_multiLine_content{
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    text-overflow: ellipsis;
+    overflow : hidden;
+}
+@mixin bgcLiner {
+    background: linear-gradient(to right, red , blue);
+}
+
+@mixin btnLiner {
+    background: linear-gradient(to right, red 30%, blue 100%);
+}
+@mixin btnBgLiner {
+    background: linear-gradient(red 15%, blue 100%);
+}
+
+@mixin flexRow{
+    display: flex;
+    flex-direction: row;
+}
+@mixin flexCol{
+
+    flex-direction: column;
+    display: flex;
+}
