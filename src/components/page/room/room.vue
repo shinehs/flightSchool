@@ -1,7 +1,7 @@
 <template lang="pug">
     .room
         .classRoomBg
-            span.battleInfo
+            .battleInfo
                 span.red
                     span.logoCover
                         img(src="http://downhdlogo.yy.com/hdlogo/6060/60/60/64/1090640639/u1090640639IUd4_BP.jpeg")
@@ -9,18 +9,50 @@
                         | 红方玩家
                 span.time
                     span.icon
-                    span.num 10
+                    span.num {{time}}
                 span.blue
                     span.logoCover
                         img(src="http://downhdlogo.yy.com/hdlogo/6060/60/60/93/1106939152/u1106939152nZVfxjs.png")
                     span.info
                         | 蓝方玩家
             span.window
-            span.door
+            template(v-if="gameStart >= 0 && time >= 59")
+                span.gameStart 
+                    span.icon(v-if="gameStart > 0")
+                    span.text {{gameStart == 0?'Go!': gameStart}}
+            template(v-if="time >= 57")
+                span.gamer(:class="{'red': userType == 'red','blue': userType == 'blue'}")
+            span.door.teacher__came
+                template(v-if="masterType == 'normal'")
+                    span.shadow
+                template(v-else)
+                    span.standUpMaster
+            .teacherInfo
+                template(v-if="teacherType=='normal' && masterType == 'normal'")
+                    span.blackboard.writing
+                template(v-else-if="teacherType=='watch' || masterType != 'normal'")
+                    span.blackboard.watch
+                template(v-else)
+                    span.blackboard.standUp
+                span.table
+            .studentInfo
+                span.classMate
+                span.gamer__blue(
+                    :class="{'attack': attackTime > 100 && userType === 'blue', 'beAttacked': attackTime > 100 && beAttacked === 'blue'}"
+                )
+                    span.gamer__score {{blueScore}}
+                span.gamer__red(
+                    :class="{'dese': standUp === 'blue' &&  attackTime > 100 && userType === 'red', 'attack': attackTime > 100 && userType === 'red', 'beAttacked':  attackTime > 100 && beAttacked === 'red', 'standUp': standUp === 'red'}"
+                )
+                    span.gamer__score {{redScore}}
+            .fireContent(:class="{'red': userType == 'red','blue': userType == 'blue'}")
+                span.btn(@click="attack" v-if="gameStart == 0") 打
+            
 </template>
 
 <script>
-import { findroom } from 'lodash';
+import observers from '../../../js/lib/observer/observer.js';
+import interval from '../../../js/lib/inverval-tool/interval-tool.js';
 
 export default {
     name: 'room',
@@ -29,22 +61,81 @@ export default {
     mixins: [],
     data() {
         return {
-
+            time: 60,
+            timeIntervalId: 0,
+            startIntervalId: 0,
+            attackIntervalId: 0,
+            blueScore: 0,
+            redScore: 0,
+            gameStart: 3,
+            userType: 'red',
+            teacherType: 'normal', // normal watch
+            masterType: 'normal', // normal watch
+            attackTime: 0,
+            beAttacked: 'blue',
+            standUp: ''
         };
     },
     watch: {
 
     },
     computed: {
-
+        
     },
     methods: {
-
-
+        // 订阅广播，轮询查询充值结果。
+        subscribe() {
+            const self = this;
+            observers.subscribe('countDown', () => {
+                if (self.time > 0) {
+                    self.time -= 1;
+                } else {
+                    interval.stop(this.timeIntervalId);
+                }
+            });
+            observers.subscribe('gameStart', () => {
+                if (self.gameStart > 0) {
+                    self.gameStart -= 1;
+                    if (self.gameStart === 1) {
+                        self.countDown();
+                        this.startAttack();
+                    }
+                } else {
+                    interval.stop(this.startIntervalId);
+                }
+            });
+            observers.subscribe('attack', () => {
+                if (self.attackTime - 100 > 0) {
+                    self.attackTime -= 100;
+                }
+            });
+        },
+        start() {
+            this.startIntervalId = interval.start('gameStart', 1000);
+        },
+        countDown() {
+            this.timeIntervalId = interval.start('countDown', 1000);
+        },
+        startAttack() {
+            this.attackIntervalId = interval.start('attack', 100);
+        },
+        attack() {
+            if (this.userType === 'red') {
+                this.redScore += 1;
+                this.beAttacked = 'blue';
+            } else {
+                this.blueScore += 1;
+                this.beAttacked = 'red';
+            }
+            this.attackTime += 110;
+        }
     },
     mounted() {
     },
-    created() {}
+    created() {
+        this.subscribe();
+        this.start();
+    }
 };
 </script>
 
@@ -58,7 +149,7 @@ export default {
     background-color: #FCECCB;
     .battleInfo{
         @include flexRow;
-        padding-top: 100px;
+        padding-top: 60px;
         justify-content: space-between;
         width: 100%;
 
@@ -87,16 +178,19 @@ export default {
         }
         .red{
             .info{
-                text-indent: 150px;
+                left: 20px;
+                text-indent: 110px;
                 background-color: #FC492F;
             }
         }
         .blue{
-            border-color: blue;
             .info{
+                left: -20px;
+                text-indent: 66px;
                 background-color: #1D94E2;
             }
             .logoCover{
+                border-color: blue;
                 position: absolute;
                 right: 0px;
             }
@@ -112,29 +206,386 @@ export default {
                 background-image: url('./images/clockIcon.png');
                 background-position: center;
                 background-repeat: no-repeat;
+
             }
             .num{
                 position: absolute;
+                display: block;
+                width: 72px;
                 top: 60px;
                 left: 40px;
                 font-size: 60px;
                 color: #D59A09;
+                text-align: center;
             }
         }
         .info{
             display: flex;
             position: absolute;
             z-index: 1;
-            left: -30px;
-            width: 380px;
+            width: 300px;
             height: 80px;
             line-height: 80px;
-            border-radius: 40px;
             font-size: 30px;
             text-align: center;
-            text-indent: 86px;
             color: #fff;
         }
+    }
+    .window{
+        display: block;
+        position: absolute;
+        top: 0px;
+        width: 76*1.5px;
+        height: 418*1.5px;
+        background-image: url('./images/window.png');
+        background-position: 0 0;
+        background-repeat: no-repeat;
+        background-size: cover;
+    }
+    .gameStart{
+        position: absolute;
+        top: 500px;
+        left: 300px;
+        text-align: center;
+        z-index: 4;
+        .text{
+            font-size: 120px;
+            color: #fff;
+            font-weight: bold;
+            text-shadow: 0px 0px 15px #000;
+        }
+        .icon{
+            display: block;
+            width: 149*1.5px;
+            height: 159*1.5px;
+            background-image: url('./images/startClock.png');
+            background-position: 0 0;
+            background-repeat: no-repeat;
+            background-size: cover;
+            animation: clockShake 1s infinite cubic-bezier(.28,.52,.64,1.08) 0s;
+        }
+    }
+    .gamer{
+        display: block;
+        position: absolute;
+        left: 110px;
+        top: 560px;
+        width: 94*1.5px;
+        height: 101*1.5px;
+        background-image: url('./images/gamer.png');
+        background-position: 0 0;
+        background-repeat: no-repeat;
+        background-size: cover;
+        z-index: 5;
+        animation: gamer 1.5s infinite cubic-bezier(.28,.52,.64,1.08) 0s;
+        &.red{
+            left: 510px;
+        }
+    }
+    .door{
+        display: block;
+        position: absolute;
+        top: 300px;
+        right: 0px;
+        width: 65*1.5px;
+        height: 269*1.5px;
+        background-image: url('./images/door.png');
+        background-position: 0 0;
+        background-repeat: no-repeat;
+        background-size: cover;
+        .shadow{
+            display: none;
+            position: absolute;
+            width: 44*1.5px;
+            height: 120*1.5px;
+            top: 70px;
+            right: 0px;
+            background-image: url('./images/teachshadow.png');
+            background-position: 0 0;
+            background-repeat: no-repeat;
+            background-size: cover;
+        }
+        .standUpMaster{
+            display: block;
+            position: absolute;
+            width: 190*1.5px;
+            height: 197*1.5px;
+            top: 70px;
+            right: 0px;
+            background-image: url('./images/standUpMaster.png');
+            background-position: 0 0;
+            background-repeat: no-repeat;
+            background-size: cover;
+            z-index: 5;
+        }
+        &.teacher__came{
+            .shadow{
+                display: block;
+                animation: teacherCame 3s infinite cubic-bezier(.28,.52,.64,1.08) 0s;
+            }
+        }
+    }
+    .teacherInfo{
+        .blackboard{
+            display: block;
+            position: absolute;
+            top: 340px;
+            left: 200px;
+            width: 259*1.5px;
+            height: 148*1.5px;
+            background-image: url('./images/teachdef.png');
+            background-position: 0 0;
+            background-repeat: no-repeat;
+            background-size: cover;
+            &.writing{
+                animation: writing 1s infinite ease-in-out 0s;
+            }
+            &.watch{
+                background-image: url('./images/watch.png');
+            }
+            &.standUp{
+                left: 106px;
+                width: 313*1.5px;
+                height: 152*1.5px;
+                background-image: url('./images/teacherstandup.png');
+            }
+        }
+        .table{
+            display: block;
+            position: absolute;
+            top: 560px;
+            left: 320px;
+            width: 102*1.5px;
+            height: 114*1.5px;
+            background-image: url('./images/table.png');
+            background-position: 0 0;
+            background-repeat: no-repeat;
+            background-size: cover;
+        }
+    }
+    .studentInfo{
+        position: relative;
+        top: 380px;
+        .classMate{
+            display: block;
+            position: absolute;
+            
+            left: 48px;
+            width: 462*1.5px;
+            height: 247*1.5px;
+            background-image: url('./images/classMates.png');
+            background-position: 0 0;
+            background-repeat: no-repeat;
+            background-size: cover;
+        }
+        .gamer__blue{
+            display: block;
+            position: absolute;
+            left: 6px;
+            top: 126px;
+            width: 340*1.5px;
+            height: 308*1.5px;
+            background-image: url('./images/bluefire.png');
+            background-position: -188px -46px;
+            // background-position: -2174px -50px;
+            background-repeat: no-repeat;
+            background-size: cover;
+            background-size: 1750*1.5px 331*1.5px;
+            &.attack{
+                left: -26px;
+                animation: blueAttack .3s steps(3, start) infinite forwards;
+            }
+            &.beAttacked{
+                background-position: 40px -48px;
+                background-size: 231*1.5px 328*1.5px;
+                background-image: url('./images/bbeattack.png');
+                animation: none;
+            }
+            &.dese{
+                background-image: url('./images/bdese.png');
+                background-position: 40px -10px;
+                background-size: 231*1.5px 321*1.5px;
+            }
+            .gamer__score{
+                left: 144px;
+            }
+        }
+        .gamer__red{
+            display: block;
+            position: absolute;
+            right: 6px;
+            top: 126px;
+            width: 340*1.5px;
+            height: 308*1.5px;
+            background-image: url('./images/redfff.png');
+            background-position: -16px -36px;
+            background-repeat: no-repeat;
+            background-size: 1750*1.5px 331*1.5px;
+            &.attack{
+                animation: redAttack .3s steps(3, start) infinite forwards;
+            }
+            &.beAttacked{
+                background-position: -6px -76px;
+                background-size: 350*1.5px 357*1.5px;
+                background-image: url('./images/beattack.png');
+                animation: none;
+            }
+            &.dese{
+                background-image: url('./images/dese.png');
+                background-position: -16px -50px;
+                background-size: 1050*1.5px 337*1.5px;
+                animation: dese .2s steps(2, start) infinite forwards;
+            }
+            &.standUp{
+                top: 80px;
+                height: 343*1.5px;
+                background-position: 188px -4px;
+                background-size: 213*1.5px 343*1.5px;
+                background-image: url('./images/redStand.png');
+                animation: none;
+                .gamer__score{
+                    top: 320px;
+                }
+            }
+            .gamer__score{
+                left: 320px;
+            }
+            
+        }
+        
+        .gamer__score{
+            display: block;
+            position: relative;
+            top: 274px;
+            width: 110px;
+            height: 76px;
+            line-height: 76px;
+            position: absolute;
+            background-color: #703900;
+            color: #fff;
+            font-size: 60px;
+            font-weight: bold;
+            text-align: center;
+        }
+    }
+    .fireContent{
+        display: block;
+        position: absolute;
+        bottom: 100px;
+        width: 100%;
+        height: 227*1.5px;
+        background-image: url('./images/btnbg.png');
+        background-position: 0 0;
+        background-repeat: no-repeat;
+        background-size: cover;
+        &.blue{
+            .btn{
+                left: 80px;
+                top: 60px;
+                background-color: #3BAAFF;
+            }
+        }
+        &.red{
+            .btn{
+                left: 480px;
+                top: 90px;
+                background-color: #FF4925;
+                &:active{
+                    top: 96px;
+                }
+            }
+        }
+        .btn{
+            position: relative;
+            display: block;
+            width: 200px;
+            height: 100px;
+            line-height: 100px;
+            color: #fff;
+            padding: 4px;
+            border-radius: 8px;
+            box-shadow: 0px 9px 0px rgba(91,87,81,1), 0px 9px 25px rgba(0,0,0,.7);
+            text-align: center;
+            transition: all .05s ease;
+            font-family: Microsoft Yahei,simsun,Tahoma,Helvetica,Arial,SimHei,sans-serif;
+            font-size: 60px;
+            font-weight: bold;
+            
+            &:active{
+                box-shadow: 0px 3px 0px rgba(91,87,81,1), 0px 3px 6px rgba(0,0,0,.9);
+                position: relative;
+                top: 66px;
+            }
+        }
+    }
+}
+@keyframes writing {
+    0%{
+        background-image: url('./images/teachdef.png');
+    }
+    50%{
+        background-image: url('./images/teachdef.png');
+    }
+    100%{
+        background-image: url('./images/teacher2.png');
+    }
+}
+@keyframes teacherCame {
+    0%{
+        right: 0px;
+    }
+    50%{
+        right: -60px;
+    }
+    100%{
+        right: 0px;
+    }
+}
+@keyframes gamer {
+    0%{
+        top: 560px;
+    }
+    50%{
+        top: 600px;
+    }
+    100%{
+        right: 560px;
+    }
+}
+@keyframes clockShake {
+    0%{
+        // transform: matrix(0.965926,0.258819,-0.258819,0.965926,0,0);
+    }
+    50%{
+        transform: matrix(0.965926,-0.258819,0.258819,0.965926,0,0);
+        // transform: matrix(1,0,0,1,0,0);
+    }
+    100%{
+        // transform: matrix(0.965926,-0.258819,0.258819,0.965926,0,0);
+    }
+}
+@keyframes redAttack {
+    0%{
+        background-position: -16px -36px;
+    }
+    100%{
+        background-position: -1592px -36px;
+    }
+}
+@keyframes blueAttack {
+    0%{
+        background-position: -16px -36px;
+    }
+    100%{
+        background-position: -1592px -36px;
+    }
+}
+@keyframes dese {
+    0%{
+        background-position: -16px -50px;
+    }
+    100%{
+        background-position: -1068px -50px;
     }
 }
 </style>
