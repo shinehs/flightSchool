@@ -25,6 +25,8 @@
             span.door.teacher__came
                 template(v-if="masterType == 'normal'")
                     span.shadow
+                template(v-else-if="masterType == 'watch'")
+                    span.watch
                 template(v-else)
                     span.standUpMaster
             .teacherInfo
@@ -38,49 +40,69 @@
             .studentInfo
                 span.classMate
                 span.gamer__blue(
-                    :class="{'attack': attackTime > 100 && userType === 'blue', 'beAttacked': attackTime > 100 && beAttacked === 'blue'}"
+                    :class="{'dese': standUp === 'red' && attackTime > 100 && userType === 'blue','attack': attackTime > 100, 'beAttacked': beAttacked === 'blue', 'standUp': standUp === 'blue'}"
                 )
                     span.gamer__score {{blueScore}}
                 span.gamer__red(
-                    :class="{'dese': standUp === 'blue' &&  attackTime > 100 && userType === 'red', 'attack': attackTime > 100 && userType === 'red', 'beAttacked':  attackTime > 100 && beAttacked === 'red', 'standUp': standUp === 'red'}"
+                    :class="{'dese': standUp === 'blue' && attackTime > 100 && userType === 'red', 'attack': attackTime > 100, 'beAttacked': beAttacked === 'red', 'standUp': standUp === 'red'}"
                 )
                     span.gamer__score {{redScore}}
             .fireContent(:class="{'red': userType == 'red','blue': userType == 'blue'}")
                 span.btn(@click="attack" v-if="gameStart == 0") 打
-            
+        template(v-if=" gameType == 'match' || gameType == 'finish'")
+            w-dialog(:active="dialogActive")
+                template(slot="body" v-if="gameType == 'match'")
+                    span.slogan__icon
+                    template(v-if="roomNo === ''")
+                        h2 正在为您匹配对手，请稍后。。。
+                    template(v-else)
+                        h2 匹配成功，已进入{{roomNo}}号房！
+                    h3 小贴士：校长和老师的忍耐是有限度的！
+                template(slot="body" v-else)
+                    .resScore
+                        span.blueScore {{blueScore}}
+                        span.redScore {{redScore}}
+                    span.result__bg(:class="{'red__win':winner === 'red' , 'blue__win': winner === 'blue'}")
 </template>
 
 <script>
 import observers from '../../../js/lib/observer/observer.js';
 import interval from '../../../js/lib/inverval-tool/interval-tool.js';
+import dialog from '../../widget/dialog/dialog.vue';
 
 export default {
     name: 'room',
     components: {
+        wDialog: dialog
     },
     mixins: [],
     data() {
         return {
+            dialogActive: true,
             time: 60,
             timeIntervalId: 0,
             startIntervalId: 0,
             attackIntervalId: 0,
+            beAttackIntervalId: 0,
             blueScore: 0,
             redScore: 0,
-            gameStart: 3,
-            userType: 'red',
+            gameStart: 5,
+            userType: '',
             teacherType: 'normal', // normal watch
             masterType: 'normal', // normal watch
             attackTime: 0,
-            beAttacked: 'blue',
-            standUp: ''
+            beAttacked: '',
+            standUp: '',
+            wsObj: null,
+            roomNo: '',
+            gameType: 'match', // match
+            winner: ''
         };
     },
     watch: {
-
     },
     computed: {
-        
+
     },
     methods: {
         // 订阅广播，轮询查询充值结果。
@@ -107,7 +129,11 @@ export default {
             observers.subscribe('attack', () => {
                 if (self.attackTime - 100 > 0) {
                     self.attackTime -= 100;
+                    self.beAttacked = '';
                 }
+            });
+            observers.subscribe('beAttack', () => {
+                self.beAttacked = '';
             });
         },
         start() {
@@ -118,23 +144,93 @@ export default {
         },
         startAttack() {
             this.attackIntervalId = interval.start('attack', 100);
+            this.startBeAttack();
+        },
+        startBeAttack() {
+            this.beAttackIntervalId = interval.start('beAttack', 100);
         },
         attack() {
-            if (this.userType === 'red') {
-                this.redScore += 1;
-                this.beAttacked = 'blue';
+            // if (this.userType === 'red') {
+            //     this.redScore += 1;
+            //     this.beAttacked = 'blue';
+            // } else {
+            //     this.blueScore += 1;
+            //     this.beAttacked = 'red';
+            // }
+            // this.attackTime += 100;
+            this.wsObj.send('attack');
+        },
+        setUserType(type) {
+            if (type === '"A"') {
+                this.userType = 'blue';
             } else {
+                this.userType = 'red';
+            }
+        },
+        setAttack(type) {
+            if (type === 'AAttack') {
                 this.blueScore += 1;
                 this.beAttacked = 'red';
+            } else {
+                this.redScore += 1;
+                this.beAttacked = 'blue';
             }
-            this.attackTime += 110;
+            this.attackTime += 100;
+        },
+        setRoomId(id) {
+            this.roomNo = id;
+        },
+        createConnect() {
+            const self = this;
+            const ws = new WebSocket('ws://127.0.0.1:8888/game');
+
+            ws.onopen = function () {
+                ws.send('start');
+            };
+
+            ws.onmessage = function (evt) {
+                const resData = JSON.parse(evt.data);
+                if (resData.event === 'match') {
+                    self.setUserType(resData.pos);
+                    self.setRoomId(resData.roomNo);
+                } else if (resData.event === 'ready') {
+                    self.gameStart = resData.readyTime - 2;
+                    self.start();
+                } else if (resData.event === 'start') {
+                    self.gameStart = 0;
+                    self.startAttack();
+                } else if (resData.event === 'attack') {
+                    if (resData.AAttack) {
+                        self.setAttack('AAttack');
+                    } else if (resData.BAttack) {
+                        self.setAttack('BAttack');
+                    }
+                    // self.setScore();
+                } else if (resData.event === 'finish') {
+                    if (resData.AScore > resData.BScore) {
+                        self.winner = 'blue';
+                    } else {
+                        self.winner = 'red';
+                    }
+                }
+                self.gameType = resData.event;
+            };
+
+            ws.onclose = function (evt) {
+                debugger;
+            };
+
+            ws.onerror = function (evt) {
+                debugger;
+            };
+            this.wsObj = ws;
         }
     },
     mounted() {
     },
     created() {
         this.subscribe();
-        this.start();
+        this.createConnect();
     }
 };
 </script>
@@ -318,6 +414,19 @@ export default {
             background-size: cover;
             z-index: 5;
         }
+        .watch{
+            display: block;
+            position: absolute;
+            width: 78*1.5px;
+            height: 268*1.5px;
+            top: 0px;
+            right: 0px;
+            background-image: url('./images/standUpMaster2.png');
+            background-position: 0 0;
+            background-repeat: no-repeat;
+            background-size: cover;
+            z-index: 5;
+        }
         &.teacher__came{
             .shadow{
                 display: block;
@@ -338,7 +447,7 @@ export default {
             background-repeat: no-repeat;
             background-size: cover;
             &.writing{
-                animation: writing 1s infinite ease-in-out 0s;
+                animation: writing 1s infinite linear 0s;
             }
             &.watch{
                 background-image: url('./images/watch.png');
@@ -405,6 +514,18 @@ export default {
                 background-image: url('./images/bdese.png');
                 background-position: 40px -10px;
                 background-size: 231*1.5px 321*1.5px;
+            }
+            &.standUp{
+                top: 80px;
+                height: 343*1.5px;
+                background-position: 46px 0px;
+                background-size: 197*1.5px 343*1.5px;
+                background-image: url('./images/blueStand.png');
+                animation: none;
+                z-index: 10;
+                .gamer__score{
+                    top: 320px;
+                }
             }
             .gamer__score{
                 left: 144px;
@@ -518,6 +639,76 @@ export default {
             }
         }
     }
+    .dialog__content{
+        padding-top: 600px;
+        h2{
+            margin: 0;
+            padding: 0 0 20px; 
+            font-size: 36px;
+            color: #fff;
+        }
+        h3{
+            margin:20px 0 0;
+            padding: 0px;
+            font-size: 26px;
+            line-height: 40px;
+            color: #fff;
+            background-image: linear-gradient(to right, red , blue);
+        }
+        .slogan__icon{
+            display: block;
+            width: 96*2px;
+            height: 96*2px;
+            margin: 0 auto;
+            background-image: url('./images/connect.gif');
+            background-position: center;
+            background-repeat: no-repeat;
+            background-size: cover;
+        }
+        // .slogan__icon{
+        //     animation:shake 2s infinite linear
+        // }
+        .join__gameBtn{
+            display: block;
+            width: 180px;
+            height: 88px;
+            line-height: 88px;
+            margin: 40px auto 0px;
+            @include btnLiner;
+            font-size: 32px;
+            color: #fff;
+            text-align: center;
+            border-radius: 44px;
+            box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.25);
+            &:active{
+                box-shadow: 0 0 0 5px rgba(0, 0, 0, 0);
+            }
+        }
+        .resScore{
+            display: flex;
+            justify-content: space-around;
+            flex-direction: row;
+            font-size: 66px;
+            font-weight: bold;
+            color: #fff;
+        }
+        .result__bg{
+            &.red__win,&.blue__win{
+                display: block;
+                width: 100%;
+                height: 495 *1.5px;
+                background-position: center;
+                background-repeat: no-repeat;
+                background-size: cover;
+            }
+            &.red__win{
+                background-image: url('./images/redwin.png');
+            }
+            &.blue__win{
+                background-image: url('./images/blueWin.png');
+            }
+        }
+    }
 }
 @keyframes writing {
     0%{
@@ -586,6 +777,23 @@ export default {
     }
     100%{
         background-position: -1068px -50px;
+    }
+}
+@keyframes shake {
+    0%{
+        transform: matrix(1,0,0,1,0,0);
+    }
+    20%{
+        transform: matrix(0.965926,0.258819,-0.258819,0.965926,0,0);
+    }
+    40%{
+        transform: matrix(1,0,0,1,0,0);
+    }
+    60%{
+        transform: matrix(0.965926,-0.258819,0.258819,0.965926,0,0);
+    }
+    80%{
+        transform: matrix(1,0,0,1,0,0);
     }
 }
 </style>

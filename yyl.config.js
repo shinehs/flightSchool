@@ -61,7 +61,8 @@ Object.assign(config, {
   plugins: [ // 额外的 npm 组件
     // 'yyl-flexlayout'
 	'axios@0.18.0',
-	'lodash'
+	'lodash',
+	'socket.io'
   ]
 });
 // - base

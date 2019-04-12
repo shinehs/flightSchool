@@ -6,14 +6,8 @@
             span.gameIndex__logo__icon
             span.gameIndex__logo__icon.type__bom
             span.gameIndex__logo__icon.type__lightning
-        .gameIndex__startBtn(@click="gameStart")
+        .gameIndex__startBtn(@click="joinRoom")
             a 开始比赛
-        w-dialog(:active="dialogActive")
-            template(slot="body")
-                span.slogan__icon
-                h2 来啊互相伤害啊
-                input.roomNumber(ref="input" type="number" pattern="\d*" @input="onIntInput" placeholder="请输入房间号" v-model="roomId" @keyup.enter="joinRoom")
-                span.join__gameBtn(@click="joinRoom") 怼Ta
 </template>
 
 <script>
@@ -56,10 +50,7 @@ export default {
         },
         joinRoom() {
             this.$router.push({
-                path: '/room',
-                query: {
-                    id: this.roomId
-                }
+                path: '/room'
             });
         }
     },
@@ -158,44 +149,6 @@ export default {
         text-indent: 20px;
         &::-webkit-input-placeholder{
             color: #c8c8c8;
-        }
-    }
-    .dialog__content{
-        padding-top: 600px;
-        h2{
-            margin: 0;
-            padding: 0 0 20px; 
-            font-size: 36px;
-            color: #fff;
-        }
-        .slogan__icon{
-            display: block;
-            width: 96px;
-            height: 96px;
-            margin: 0 auto;
-            background-image: url('./images/battle.png');
-            background-position: center;
-            background-repeat: no-repeat;
-            background-size: cover;
-        }
-        .slogan__icon{
-            animation:shake 2s infinite linear
-        }
-        .join__gameBtn{
-            display: block;
-            width: 180px;
-            height: 88px;
-            line-height: 88px;
-            margin: 40px auto 0px;
-            @include btnLiner;
-            font-size: 32px;
-            color: #fff;
-            text-align: center;
-            border-radius: 44px;
-            box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.25);
-            &:active{
-                box-shadow: 0 0 0 5px rgba(0, 0, 0, 0);
-            }
         }
     }
 }
