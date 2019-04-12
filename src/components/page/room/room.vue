@@ -16,39 +16,50 @@
                     span.info
                         | 蓝方玩家
             span.window
-            template(v-if="gameStart >= 0 && time >= 59")
-                span.gameStart 
-                    span.icon(v-if="gameStart > 0")
-                    span.text {{gameStart == 0?'Go!': gameStart}}
-            template(v-if="time >= 57")
-                span.gamer(:class="{'red': userType == 'red','blue': userType == 'blue'}")
-            span.door.teacher__came
-                template(v-if="masterType == 'normal'")
+            template(v-if="gameType != 'match'")
+                template(v-if="gameStart >= 0 && time >= 59")
+                    span.gameStart 
+                        span.icon(v-if="gameStart > 0")
+                        span.text {{gameStart == 0?'Go!': gameStart}}
+                template(v-if="time >= 57")
+                    span.gamer(:class="{'red': userType == 'red','blue': userType == 'blue'}")
+            span.door(:class="{'teacher__came':masterType == 'normal'}")
+                template(v-if="masterType == 'normal' && gameType === 'npc1'")
                     span.shadow
-                template(v-else-if="masterType == 'watch'")
+                template(v-else-if="masterType == 'watch' || teacherType == 'standUp'")
                     span.watch
-                template(v-else)
+                template(v-else-if="masterType == 'standUp'")
                     span.standUpMaster
             .teacherInfo
-                template(v-if="teacherType=='normal' && masterType == 'normal'")
+                template(v-if="teacherType=='normal'")
                     span.blackboard.writing
-                template(v-else-if="teacherType=='watch' || masterType != 'normal'")
+                template(v-else-if="teacherType=='watch' || masterType == 'standUp'")
                     span.blackboard.watch
-                template(v-else)
+                template(v-else-if="teacherType == 'standUp'")
                     span.blackboard.standUp
                 span.table
             .studentInfo
                 span.classMate
                 span.gamer__blue(
-                    :class="{'dese': standUp === 'red' && attackTime > 100 && userType === 'blue','attack': attackTime > 100, 'beAttacked': beAttacked === 'blue', 'standUp': standUp === 'blue'}"
+                    :class="{'dese': standUpRed && attackTime > 100 && userType === 'blue','attack': attackTime > 100 &&  beAttacked !== 'blue', 'beAttacked': beAttacked === 'blue', 'standUp': standUpBlue}"
                 )
                     span.gamer__score {{blueScore}}
                 span.gamer__red(
-                    :class="{'dese': standUp === 'blue' && attackTime > 100 && userType === 'red', 'attack': attackTime > 100, 'beAttacked': beAttacked === 'red', 'standUp': standUp === 'red'}"
+                    :class="{'dese': standUpBlue && attackTime > 100 && userType === 'red', 'attack': attackTime > 100 && beAttacked !== 'red', 'beAttacked': beAttacked === 'red', 'standUp': standUpRed}"
                 )
                     span.gamer__score {{redScore}}
+                
             .fireContent(:class="{'red': userType == 'red','blue': userType == 'blue'}")
-                span.btn(@click="attack" v-if="gameStart == 0") 打
+                template(v-if="userType == 'red'")
+                    template(v-if="standUpBlue && !standUpRed")
+                        span.btn(@click="attack" v-if="gameStart == 0") 嘚瑟
+                    template(v-else-if="!standUpRed && !gameType.includes('npc2')")
+                        span.btn(@click="attack" v-if="gameStart == 0") 打
+                template(v-else)
+                    template(v-if="standUpRed && !standUpBlue")
+                        span.btn(@click="attack" v-if="gameStart == 0") 嘚瑟
+                    template(v-else-if="!standUpBlue && !gameType.includes('npc2')")
+                        span.btn(@click="attack" v-if="gameStart == 0") 打
         template(v-if=" gameType == 'match' || gameType == 'finish'")
             w-dialog(:active="dialogActive")
                 template(slot="body" v-if="gameType == 'match'")
@@ -92,7 +103,8 @@ export default {
             masterType: 'normal', // normal watch
             attackTime: 0,
             beAttacked: '',
-            standUp: '',
+            standUpBlue: false,
+            standUpRed: false,
             wsObj: null,
             roomNo: '',
             gameType: 'match', // match
@@ -161,7 +173,7 @@ export default {
             this.wsObj.send('attack');
         },
         setUserType(type) {
-            if (type === '"A"') {
+            if (type === 'A') {
                 this.userType = 'blue';
             } else {
                 this.userType = 'red';
@@ -212,16 +224,60 @@ export default {
                     } else {
                         self.winner = 'red';
                     }
+                } else if (resData.event.includes('npc')) {
+                    // NPC1 warn
+                    // npc2 catch
+                    // npcObject: 'AB  C = both'，
+                    if (resData.event === 'npc1') {
+                        self.masterType = 'normal';
+                        self.masterType = 'normal';
+                        // 老师
+                    } else if (resData.event === 'npc2') {
+                        if (resData.npcObj !== 'D') {
+                            self.teacherType = 'standUp';
+                            self.masterType = 'watch';
+                        } else {
+                            self.masterType = 'watch';
+                            self.teacherType = 'watch';
+                        }
+                        // 校长
+                    } else if (resData.event === 'npc22') {
+                        if (resData.npcObj !== 'D') {
+                            self.teacherType = 'watch';
+                            self.masterType = 'standUp';
+                        } else {
+                            self.masterType = 'watch';
+                            self.teacherType = 'watch';
+                        }
+                    } else if (resData.event === 'npc3') {
+                        self.teacherType = 'normal';
+                        self.masterType = 'normal';
+                    } else {
+                        self.masterType = 'watch';
+                        self.teacherType = 'watch';
+                    }
+                    // TODO 站起来的人
+                    if (resData.npcObj === 'A') {
+                        self.standUpBlue = 1;
+                    } else if (resData.npcObj === 'B') {
+                        self.standUpRed = 1;
+                    } else if (resData.npcObj === 'C') {
+                        self.standUpBlue = 1;
+                        self.standUpRed = 1;
+                    } else {
+                        self.standUpBlue = false;
+                        self.standUpRed = false;
+                    }
                 }
                 self.gameType = resData.event;
             };
 
             ws.onclose = function (evt) {
-                debugger;
+                this.wsObj.close();
             };
 
             ws.onerror = function (evt) {
-                debugger;
+                this.wsObj.close();
             };
             this.wsObj = ws;
         }
@@ -511,18 +567,19 @@ export default {
                 animation: none;
             }
             &.dese{
-                background-image: url('./images/bdese.png');
-                background-position: 40px -10px;
-                background-size: 231*1.5px 321*1.5px;
+                background-image: url('./images/bdese.png') !important;
+                background-position: 40px -10px !important;
+                background-size: 231*1.5px 321*1.5px !important;
+                animation: none;
             }
             &.standUp{
-                top: 80px;
-                height: 343*1.5px;
-                background-position: 46px 0px;
-                background-size: 197*1.5px 343*1.5px;
-                background-image: url('./images/blueStand.png');
-                animation: none;
-                z-index: 10;
+                top: 80px !important;
+                height: 343*1.5px !important;
+                background-position: 46px 0px !important;
+                background-size: 197*1.5px 343*1.5px !important;
+                background-image: url('./images/blueStand.png') !important;
+                animation: none !important;
+                z-index: 10 !important;
                 .gamer__score{
                     top: 320px;
                 }
@@ -555,15 +612,15 @@ export default {
                 background-image: url('./images/dese.png');
                 background-position: -16px -50px;
                 background-size: 1050*1.5px 337*1.5px;
-                animation: dese .2s steps(2, start) infinite forwards;
+                animation: deseRed .2s steps(2, start) infinite forwards;
             }
             &.standUp{
-                top: 80px;
-                height: 343*1.5px;
-                background-position: 188px -4px;
-                background-size: 213*1.5px 343*1.5px;
-                background-image: url('./images/redStand.png');
-                animation: none;
+                top: 80px !important;
+                height: 343*1.5px !important;
+                background-position: 188px -4px !important;
+                background-size: 213*1.5px 343*1.5px !important;
+                background-image: url('./images/redStand.png') !important;
+                animation: none !important;
                 .gamer__score{
                     top: 320px;
                 }
@@ -627,7 +684,7 @@ export default {
             border-radius: 8px;
             box-shadow: 0px 9px 0px rgba(91,87,81,1), 0px 9px 25px rgba(0,0,0,.7);
             text-align: center;
-            transition: all .05s ease;
+            transition: all 0.05s ease;
             font-family: Microsoft Yahei,simsun,Tahoma,Helvetica,Arial,SimHei,sans-serif;
             font-size: 60px;
             font-weight: bold;
@@ -657,8 +714,8 @@ export default {
         }
         .slogan__icon{
             display: block;
-            width: 96*2px;
-            height: 96*2px;
+            width: 96*1.5px;
+            height: 96*1.5px;
             margin: 0 auto;
             background-image: url('./images/connect.gif');
             background-position: center;
@@ -771,9 +828,17 @@ export default {
         background-position: -1592px -36px;
     }
 }
-@keyframes dese {
+@keyframes deseRed {
     0%{
         background-position: -16px -50px;
+    }
+    100%{
+        background-position: -1068px -50px;
+    }
+}
+@keyframes deseBlue {
+    0%{
+        background-position: 40px -10px;
     }
     100%{
         background-position: -1068px -50px;
