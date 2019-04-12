@@ -6,9 +6,11 @@ import VueRouter from 'vue-router';
 
 import store from '../../vuex/store.js';
 import './index.scss';
-
-const pgindex = () => import(/* webpackChunkName: "pgindex" */ '../../components/page/index/index.vue');
-const room = () => import(/* webpackChunkName: "room" */ '../../components/page/room/room.vue');
+import pgindex from '../../components/page/index/index.vue';
+import room from '../../components/page/room/room.vue';
+import test from '../../components/page/test/test.vue';
+// const pgindex = () => import(/* webpackChunkName: "pgindex" */ '../../components/page/index/index.vue');
+// const room = () => import(/* webpackChunkName: "room" */ '../../components/page/room/room.vue');
 
 Vue.use(VueRouter);
 
@@ -20,6 +22,9 @@ const router = new VueRouter({
         path: '/room',
         component: room
     }, {
+        path: '/test',
+        component: test
+    },{
         path: '*',
         redirect: '/index'
     }]
