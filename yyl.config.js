@@ -19,7 +19,7 @@ const setting = {
     port: 5000 // 服务器 port
   },
   dest: {
-    basePath: `/project/${PROJECT_NAME}/${PLATFORM}`,
+    basePath: '',
     jsPath: 'js',
     jslibPath: 'js/lib',
     cssPath: 'css',

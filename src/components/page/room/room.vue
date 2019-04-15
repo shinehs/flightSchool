@@ -67,7 +67,7 @@
                     template(v-if="roomNo === ''")
                         h2 正在为您匹配对手，请稍后。。。
                     template(v-else)
-                        h2 匹配成功，已进入{{roomNo}}号房！
+                        h2 已成功进入{{roomNo}}号房，请耐心等待其他玩家~
                     h3 小贴士：校长和老师的忍耐是有限度的！
                 template(slot="body" v-else)
                     .resScore
@@ -201,7 +201,7 @@ export default {
             // const ws = new WebSocket('ws://127.0.0.1:8888/game');
 
             ws.onopen = function () {
-                const name = unescape(self.$route.query.name);
+                const name = self.$route.query.name ? unescape(self.$route.query.name) : `用户${Math.floor(Math.random() * 100)}`;
                 ws.send(`start,${name}`);
             };
 
