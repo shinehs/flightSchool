@@ -2,19 +2,19 @@
     .room
         .classRoomBg
             .battleInfo
-                span.red
+                span.blue
                     span.logoCover
                         img(src="http://downhdlogo.yy.com/hdlogo/6060/60/60/64/1090640639/u1090640639IUd4_BP.jpeg")
                     span.info
-                        | 红方玩家
+                        | {{userType == 'blue' ? userName : oppName}}
                 span.time
                     span.icon
                     span.num {{time}}
-                span.blue
+                span.red
                     span.logoCover
                         img(src="http://downhdlogo.yy.com/hdlogo/6060/60/60/93/1106939152/u1106939152nZVfxjs.png")
                     span.info
-                        | 蓝方玩家
+                        | {{userType == 'red' ? userName : oppName}}
             span.window
             template(v-if="gameType != 'match'")
                 template(v-if="gameStart >= 0 && time >= 59")
@@ -24,7 +24,7 @@
                 template(v-if="time >= 57")
                     span.gamer(:class="{'red': userType == 'red','blue': userType == 'blue'}")
             span.door(:class="{'teacher__came':masterType == 'normal'}")
-                template(v-if="masterType == 'normal' && gameType === 'npc1'")
+                template(v-if="masterType == 'normal' && masterWatch ")
                     span.shadow
                 template(v-else-if="masterType == 'watch' || teacherType == 'standUp'")
                     span.watch
@@ -108,7 +108,10 @@ export default {
             wsObj: null,
             roomNo: '',
             gameType: 'match', // match
-            winner: ''
+            winner: '',
+            userName: '',
+            oppName: '',
+            masterWatch: false
         };
     },
     watch: {
@@ -194,10 +197,12 @@ export default {
         },
         createConnect() {
             const self = this;
-            const ws = new WebSocket('ws://127.0.0.1:8888/game');
+            const ws = new WebSocket('ws://wtest.3g.yy.com/ws/game');
+            // const ws = new WebSocket('ws://127.0.0.1:8888/game');
 
             ws.onopen = function () {
-                ws.send('start');
+                const name = unescape(self.$route.query.name);
+                ws.send(`start,${name}`);
             };
 
             ws.onmessage = function (evt) {
@@ -207,20 +212,29 @@ export default {
                     self.setRoomId(resData.roomNo);
                 } else if (resData.event === 'ready') {
                     self.gameStart = resData.readyTime - 2;
+                    self.oppName = resData.oppName;
                     self.start();
                 } else if (resData.event === 'start') {
                     self.gameStart = 0;
                     self.startAttack();
                 } else if (resData.event === 'attack') {
-                    if (resData.AAttack) {
+                    if (resData.AAttack === 1) {
                         self.setAttack('AAttack');
                     } else if (resData.BAttack) {
                         self.setAttack('BAttack');
                     }
-                    // self.setScore();
-                } else if (resData.event === 'finish') {
+                    // self.setScore(); 
+                } else if (resData.event === 'finish' || resData.event === 'finish_error') {
                     if (resData.AScore > resData.BScore) {
                         self.winner = 'blue';
+                    } else if (resData.AScore === resData.BScore) {
+                        if (Math.floor(Math.random() * 100 ) % 2 === 0 ) {
+                            self.redScore += 1;
+                            self.winner = 'red';
+                        } else {
+                            self.blueScore += 1;
+                            self.winner = 'blue';
+                        }
                     } else {
                         self.winner = 'red';
                     }
@@ -228,7 +242,9 @@ export default {
                     // NPC1 warn
                     // npc2 catch
                     // npcObject: 'AB  C = both'，
+                    self.masterWatch = false;
                     if (resData.event === 'npc1') {
+                        self.masterWatch = true;
                         self.masterType = 'normal';
                         self.masterType = 'normal';
                         // 老师
@@ -242,6 +258,7 @@ export default {
                         }
                         // 校长
                     } else if (resData.event === 'npc22') {
+                        
                         if (resData.npcObj !== 'D') {
                             self.teacherType = 'watch';
                             self.masterType = 'standUp';
@@ -272,13 +289,6 @@ export default {
                 self.gameType = resData.event;
             };
 
-            ws.onclose = function (evt) {
-                this.wsObj.close();
-            };
-
-            ws.onerror = function (evt) {
-                this.wsObj.close();
-            };
             this.wsObj = ws;
         }
     },
@@ -287,6 +297,7 @@ export default {
     created() {
         this.subscribe();
         this.createConnect();
+        this.userName = unescape(this.$route.query.name);
     }
 };
 </script>
@@ -295,13 +306,14 @@ export default {
 @import "../../../sass/_mixin.scss";
 
 .room{
-    position: relative;
+    position: fixed;
     width: 100%;
     height: 100%;
+    top: -100px;
     background-color: #FCECCB;
     .battleInfo{
         @include flexRow;
-        padding-top: 60px;
+        padding-top: 120px;
         justify-content: space-between;
         width: 100%;
 
@@ -649,7 +661,7 @@ export default {
     .fireContent{
         display: block;
         position: absolute;
-        bottom: 100px;
+        bottom: -150px;
         width: 100%;
         height: 227*1.5px;
         background-image: url('./images/btnbg.png');
@@ -697,7 +709,7 @@ export default {
         }
     }
     .dialog__content{
-        padding-top: 600px;
+        padding-top: 400px;
         h2{
             margin: 0;
             padding: 0 0 20px; 

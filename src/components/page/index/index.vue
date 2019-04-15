@@ -6,6 +6,7 @@
             span.gameIndex__logo__icon
             span.gameIndex__logo__icon.type__bom
             span.gameIndex__logo__icon.type__lightning
+        input.userName(type="text" v-model="name" placeholder="请输入用户名")
         .gameIndex__startBtn(@click="joinRoom")
             a 开始比赛
 </template>
@@ -23,7 +24,8 @@ export default {
     data() {
         return {
             dialogActive: false,
-            roomId: ''
+            roomId: '',
+            name: ''
         };
     },
     watch: {
@@ -50,7 +52,10 @@ export default {
         },
         joinRoom() {
             this.$router.push({
-                path: '/room'
+                path: '/room',
+                query: {
+                    name: this.name ? escape(this.name) : `用户${Math.floor(Math.random() * 100)}`
+                }
             });
         }
     },
@@ -62,7 +67,9 @@ export default {
 
 <style lang="scss">
 @import "../../../sass/_mixin.scss";
-
+#app{
+    position: relative;
+}
 .gameIndex{
     padding-top: 100px;
     .gameIndex__title{
@@ -111,11 +118,21 @@ export default {
             }
         }
     }
+    .userName{
+        display: block;
+        margin: 40px auto 0;
+        width: 80%;
+        height: 80px;
+        text-indent: 20px;
+        font-size: 40px;
+        text-align: center;
+        outline: none;
+    }
     .gameIndex__startBtn{
         width: 450px;
         height: 88px;
         line-height: 88px;
-        margin: 200px auto 0px;
+        margin: 100px auto 0px;
         @include btnLiner;
         font-size: 32px;
         color: #fff;
